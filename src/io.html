@@ -1,0 +1,111 @@
+<!DOCTYPE>
+<html>
+
+<head>
+  <script src="https://unpkg.com/react/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+  <script src="https://unpkg.com/socket.io-client@4.5.0/dist/socket.io.min.js" crossorigin="anonymous"></script>
+  <style>
+    table {
+      width: 100%;
+    }
+
+    tr:nth-child(odd) {
+      background: #f3f3f3;
+    }
+
+    tr {
+      padding: 12px;
+      cursor: pointer;
+      height: auto;
+      overflow-x: scroll;
+      display: flex;
+      border-bottom: 1px solid #ccc;
+    }
+
+    td {
+      height: auto;
+    }
+
+    td:nth-child(1),
+    th:nth-child(1) {
+      flex: 1 1 auto;
+      max-width: 1200px;
+      overflow-x: scroll;
+    }
+
+    td:nth-child(2),
+    th:nth-child(2) {
+      width: 120px;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0
+    }
+  </style>
+
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const socket = io('http://127.0.0.1:9025', { transports: ['websocket'], path: "/NAME_SPACE" })
+    socket.emit('NEW_ENTER', "proxy-client")
+    class Queue {
+      max = 100
+      _data = []
+      push(item) {
+        if (this._data.length > this.max) {
+          this._data.pop()
+        }
+        this._data.unshift(item)
+      }
+      get data() {
+        return [].concat(this._data)
+      }
+    }
+    const queue = new Queue
+
+
+    const App = () => {
+      const [records, setRecords] = React.useState(queue.data)
+      const [details, setDetails] = React.useState()
+      React.useEffect(() => {
+        socket.on('RECEIVE_MSG', (data) => {
+          queue.push(data)
+          setRecords(queue.data)
+        })
+      }, [setRecords])
+      return <table>
+        <thead>
+          <tr><th>url</th> <th>status</th> </tr>
+        </thead>
+        <tbody>
+          {records.map((item) => {
+            return <>
+              <tr key={item?.req?.url} onClick={() => (details === item ? setDetails() : setDetails(item))}>
+                <td>  {item?.req?.url}</td>
+                <td>  {item?.res?.statusCode}</td>
+              </tr>
+              {details && details === item ?
+                <tr key={item?.req?.url + "__details"}>
+                  <td>
+                    <pre>  {
+                      JSON.stringify(details, null, 2)
+                    } </pre>
+                  </td>
+                </tr> : 
+                null}
+            </>
+          })}
+        </tbody>
+      </table>
+    };
+    ReactDOM.createRoot(document.querySelector('#root')).render(<App />);
+  </script>
+</body>
+
+</html>
